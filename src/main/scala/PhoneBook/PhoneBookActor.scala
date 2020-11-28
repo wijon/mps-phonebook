@@ -8,22 +8,22 @@ case class PhoneBookActor(filename: String) extends Actor{
   def receive: Receive = {
     case SearchFirstname(firstname) =>
       val bufferedSource = Source.fromFile(filename)
-      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\t")(0).contains(firstname))
+      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\|")(0).contains(firstname))
       bufferedSource.close
       sender ! returnValues
     case SearchLastname(lastname) =>
       val bufferedSource = Source.fromFile(filename)
-      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\t")(1).contains(lastname))
+      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\|")(1).contains(lastname))
       bufferedSource.close
       sender ! returnValues
-    case SearchPostcode(postcode) =>
+    case SearchStreetName(streetName) =>
       val bufferedSource = Source.fromFile(filename)
-      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\t")(2).equals(postcode.toString))
+      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\|")(2).equals(streetName))
       bufferedSource.close
       sender ! returnValues
     case SearchCity(city) =>
       val bufferedSource = Source.fromFile(filename)
-      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\t")(3).contains(city))
+      val returnValues = bufferedSource.getLines().toVector.filter(r => r.split("\\|")(3).contains(city))
       bufferedSource.close
       sender ! returnValues
     case SearchAll(searchString) =>
