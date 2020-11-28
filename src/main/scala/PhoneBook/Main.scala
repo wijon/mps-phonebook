@@ -1,6 +1,8 @@
 package PhoneBook
 
-import akka.actor.{ActorSystem, Props}
+import java.io.File
+
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 
@@ -13,20 +15,29 @@ import scala.util.{Failure, Success}
 import scala.util.control.Breaks.{break, breakable}
 
 object Main {
+  private def getFileList(dir: String): Array[String] = {
+    val file = new File(dir)
+    file.listFiles
+      .filter(_.isFile)
+      .filter(_.getName.endsWith(".csv"))
+      .map(_.getPath)
+  }
+
+  private def createActorForFile(system: ActorSystem, filePath: String): ActorRef = {
+    val actorName = filePath.split("\\\\").last.split("\\.")(0)
+    system.actorOf(Props(PhoneBookActor(filePath)), actorName)
+  }
+
   def main(args: Array[String]): Unit = {
     val system = ActorSystem("demo-system")
-    implicit val timeout: Timeout = Timeout(5 seconds)
+    val filePaths = getFileList("src\\main\\scala\\PhoneBook\\data")
 
-    val phoneBookTuttlingen = system.actorOf(Props(PhoneBookActor("src\\main\\scala\\PhoneBook\\Tuttlingen.csv")), "pbTut")
-    val phoneBookRottweil = system.actorOf(Props(PhoneBookActor("src\\main\\scala\\PhoneBook\\Rottweil.csv")), "pbRw")
-    val phoneBookKonstanz = system.actorOf(Props(PhoneBookActor("src\\main\\scala\\PhoneBook\\Konstanz.csv")), "pbKn")
-
-    val phoneBookActors = Vector(phoneBookTuttlingen, phoneBookRottweil, phoneBookKonstanz)
+    val phoneBookActors = filePaths.map(fp => createActorForFile(system, fp))
 
     System.out.println("Was möchten Sie tun?")
     System.out.println("(1) nach einem Vorname suchen")
     System.out.println("(2) nach einem Nachname suchen")
-    System.out.println("(3) nach einer PLZ suchen")
+    System.out.println("(3) nach einer Strasse suchen")
     System.out.println("(4) nach einem Ortsnamen suchen")
     System.out.println("(5) alle Daten durchsuchen")
 
@@ -37,7 +48,7 @@ object Main {
         input match {
           case "1" => println("Geben Sie einen Vornamen ein:")
           case "2" => println("Geben Sie einen Nachnamen ein:")
-          case "3" => println("Geben Sie eine PLZ ein:")
+          case "3" => println("Geben Sie eine Strasse ein:")
           case "4" => println("Geben Sie einen Ortsnamen ein:")
           case "5" => println("Geben Sie ein Suchwort ein:")
           case _ =>
@@ -51,11 +62,12 @@ object Main {
         input match {
           case "1" => messageType = SearchFirstname(pattern)
           case "2" => messageType = SearchLastname(pattern)
-          case "3" => messageType = SearchPostcode(pattern.toInt)
+          case "3" => messageType = SearchStreetName(pattern)
           case "4" => messageType = SearchCity(pattern)
           case "5" => messageType = SearchAll(pattern)
         }
 
+        implicit val timeout: Timeout = Timeout(5 seconds)
         phoneBookActors.foreach(actor => (actor ? messageType).andThen(
           r => {
             if (r.isSuccess)
