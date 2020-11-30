@@ -34,14 +34,14 @@ object Main {
 
     val phoneBookActors = filePaths.map(fp => createActorForFile(system, fp))
 
-    System.out.println("Was möchten Sie tun?")
-    System.out.println("(1) nach einem Vorname suchen")
-    System.out.println("(2) nach einem Nachname suchen")
-    System.out.println("(3) nach einer Strasse suchen")
-    System.out.println("(4) nach einem Ortsnamen suchen")
-    System.out.println("(5) alle Daten durchsuchen")
-
     while (true) {
+      System.out.println("Was möchten Sie tun?")
+      System.out.println("(1) nach einem Vorname suchen")
+      System.out.println("(2) nach einem Nachname suchen")
+      System.out.println("(3) nach einer Strasse suchen")
+      System.out.println("(4) nach einem Ortsnamen suchen")
+      System.out.println("(5) alle Daten durchsuchen")
+
       breakable {
         val input = StdIn.readLine()
 
@@ -68,22 +68,17 @@ object Main {
         }
 
         implicit val timeout: Timeout = Timeout(5 seconds)
-        phoneBookActors.foreach(actor => (actor ? messageType).andThen(
-          r => {
-            if (r.isSuccess)
-              r.get.asInstanceOf[Vector[String]].foreach(println(_))
-          }))
+        val futureSequenceResults = Future.sequence(phoneBookActors.map(actor => actor ? messageType).toVector)
+        val results = Await.result(futureSequenceResults, 5 seconds)
 
-        //        Await.result(Future.sequence(phoneBookActors.map(actor => actor ? messageType)), 10 seconds)
-        //          .foreach(results => )
-        //
-        //
-        //
-        //        Future.sequence(phoneBookActors.map(actor => actor ? messageType))
-        //          .andThen(result => result match {
-        //            case Success(value) => value.foreach(res => println(res))
-        //            case Failure(value) => println("Suche fehlgeschlagen")
-        //          })
+        println()
+
+        results.foreach(r => {
+          r.asInstanceOf[Vector[String]].foreach(println(_))
+        })
+
+        println()
+        println()
       }
     }
   }
