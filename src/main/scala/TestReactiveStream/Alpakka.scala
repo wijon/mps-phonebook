@@ -25,6 +25,6 @@ object Alpakka {
       pollingInterval = 250.millis
     )
 
-    lines.runForeach(line => System.out.println(line))
+    lines.runForeach(line => println(line))
   }
 }

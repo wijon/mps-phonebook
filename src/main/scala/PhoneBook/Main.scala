@@ -11,7 +11,6 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 import scala.io.StdIn
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
 import scala.util.control.Breaks.{break, breakable}
 
 object Main {
