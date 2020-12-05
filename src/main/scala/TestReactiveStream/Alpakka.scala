@@ -12,7 +12,7 @@ import scala.concurrent.duration.DurationInt
 object Alpakka {
   def main(args: Array[String]): Unit = {
     val filename = "Berlin.csv"
-    val basePath = "src\\main\\scala\\PhoneBook\\data\\"
+    val basePath = "src\\main\\scala\\PhoneBookStream\\data\\"
 
     println("Reading " + filename)
 
