@@ -2,36 +2,32 @@ package PhoneBookStream
 
 import java.io.File
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.pattern.ask
-import akka.util.Timeout
+import akka.actor.ActorSystem
+import akka.stream.alpakka.csv.scaladsl.{CsvParsing, CsvToMap}
+import akka.stream.scaladsl.{FileIO, Sink}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 import scala.io.StdIn
 import scala.language.postfixOps
 import scala.util.control.Breaks.{break, breakable}
 
+
+
 object Main {
-  private def getFileList(dir: String): Array[String] = {
+  private def getFiles(dir: String): Array[File] = {
     val file = new File(dir)
     file.listFiles
       .filter(_.isFile)
       .filter(_.getName.endsWith(".csv"))
-      .map(_.getPath)
-  }
-
-  private def createActorForFile(system: ActorSystem, filePath: String): ActorRef = {
-    val actorName = filePath.split("\\\\").last.split("\\.")(0)
-    system.actorOf(Props(PhoneBookActor(filePath)), actorName)
   }
 
   def main(args: Array[String]): Unit = {
-    val system = ActorSystem("demo-system")
-    val filePaths = getFileList("src\\main\\scala\\PhoneBook\\data")
-
-    val phoneBookActors = filePaths.map(fp => createActorForFile(system, fp))
+    implicit val system: ActorSystem = ActorSystem()
+    val files = getFiles("src\\main\\scala\\PhoneBookStream\\data")
+    val sources = files.map(f => FileIO.fromPath(f.toPath))
+    val sink = Sink.foreach[Map[String, String]](x => println(x.values.mkString("|")))
 
     while (true) {
       System.out.println("Was möchten Sie tun?")
@@ -49,31 +45,35 @@ object Main {
           case "2" => println("Geben Sie einen Nachnamen ein:")
           case "3" => println("Geben Sie eine Strasse ein:")
           case "4" => println("Geben Sie einen Ortsnamen ein:")
-          case "5" => println("Geben Sie ein Suchwort ein:")
           case _ =>
             println("Falsche Eingabe!")
             break // Continue
         }
 
         val pattern = StdIn.readLine()
-        var messageType: SearchMessage = null
+        var column: String = null
 
         input match {
-          case "1" => messageType = SearchFirstname(pattern)
-          case "2" => messageType = SearchLastname(pattern)
-          case "3" => messageType = SearchStreetName(pattern)
-          case "4" => messageType = SearchCity(pattern)
-          case "5" => messageType = SearchAll(pattern)
+          case "1" => column = "Name"
+          case "2" => column = "Surname"
+          case "3" => column = "Street"
+          case "4" => column = "City"
         }
 
-        implicit val timeout: Timeout = Timeout(5 seconds)
-        val futureSequenceResults = Future.sequence(phoneBookActors.map(actor => actor ? messageType).toVector)
+        val futures = sources.map(source => source
+          .via(CsvParsing.lineScanner('|'))
+          .via(CsvToMap.toMapAsStrings())
+          .filter(row => row.getOrElse(column, "") == pattern)
+          .runWith(Sink.fold(List[String]())((list, m) => list :+ m.values.mkString("|")))
+        )
+
+        val futureSequenceResults = Future.sequence(futures.toVector)
         val results = Await.result(futureSequenceResults, 5 seconds)
 
         println()
 
         results.foreach(r => {
-          r.asInstanceOf[Vector[String]].foreach(println(_))
+          r.foreach(println(_))
         })
 
         println()
