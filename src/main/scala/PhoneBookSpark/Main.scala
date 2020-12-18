@@ -1,20 +1,15 @@
 package PhoneBookSpark
 
-import akka.actor.ActorSystem
-import akka.stream.alpakka.csv.scaladsl.{CsvParsing, CsvToMap}
-import akka.stream.scaladsl.{FileIO, Sink}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.kafka010._
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 
 import java.io.File
-import java.util.Properties
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
 import scala.io.StdIn
 import scala.language.postfixOps
 import scala.util.control.Breaks.{break, breakable}
-
 
 object Main {
   private def getFiles(dir: String): Array[File] = {
@@ -25,15 +20,14 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder.appName("Simple Application").config("spark.master", "local").getOrCreate()
+    val spark = SparkSession.builder.appName("Spark with Kafka").config("spark.master", "local").getOrCreate()
+    val sc = new StreamingContext(spark.sparkContext, Seconds(1))
 
     // This is to provide SPARK from printing so much garbage
     // Still not recommended... Without the garbage printing, the shell locks for multiple seconds without any indicator, why :P
     //spark.sparkContext.setLogLevel("ERROR")
 
-    implicit val system: ActorSystem = ActorSystem()
-    val files = getFiles("src\\main\\scala\\PhoneBookKafka\\data")
-    val sources = files.map(f => FileIO.fromPath(f.toPath))
+    val files = getFiles("src\\main\\scala\\PhoneBookSpark\\data")
 
     while (true) {
       System.out.println("Was möchten Sie tun?")
@@ -63,7 +57,7 @@ object Main {
         var column: String = null
 
         // SPARK only ✨✨✨✨
-        if(input.toInt > 4) {
+        if (input.toInt > 4) {
           val filename = pattern + ".csv"
           val textFile = spark.read.textFile("src\\main\\scala\\PhoneBookSpark\\data\\" + filename)
 
@@ -89,29 +83,26 @@ object Main {
             break
         }
 
-        val props = new Properties()
-        props.put("bootstrap.servers", "localhost:9092")
-        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-
-        val producer = new KafkaProducer[String, String](props)
-
-        val TOPIC = "filter-result"
-        val KEY = "result"
-
-        val futures = sources.map(source => source
-          .via(CsvParsing.lineScanner('|'))
-          .via(CsvToMap.toMapAsStrings())
-          .filter(row => row.getOrElse(column, "") == pattern)
-          .runWith(Sink.foreach(map => {
-            val result = map.values.mkString("|")
-            val record = new ProducerRecord(TOPIC, KEY, result)
-            producer.send(record)
-          }))
+        val kafkaParams = Map[String, Object](
+          "bootstrap.servers" -> "localhost:9092",
+          "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+          "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+          "group.id" -> "please_do_work",
+          "auto.offset.reset" -> "latest",
+          "enable.auto.commit" -> (false: java.lang.Boolean)
         )
 
-        val futureSequenceResults = Future.sequence(futures.toVector)
-        Await.result(futureSequenceResults, 5 seconds)
+        val topics = Array("filter-result")
+        val stream = KafkaUtils.createDirectStream[String, String](
+          sc,
+          PreferConsistent,
+          Subscribe[String, String](topics, kafkaParams)
+        )
+
+        stream.foreachRDD(rdd => println(rdd.toString()))
+
+        // Kann man so eine Nachricht schicken?!
+        val arrayRDD = spark.sparkContext.parallelize(Array(1,2,3,4,5,6,7,8))
 
         println()
         println()

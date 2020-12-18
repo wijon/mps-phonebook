@@ -1,5 +1,6 @@
 package PhoneBookSpark
 
+import org.apache.htrace.fasterxml.jackson.databind.deser.std.StringDeserializer
 import org.apache.kafka.clients.consumer.KafkaConsumer
 
 import java.util
@@ -11,7 +12,7 @@ object ResultConsumer extends App {
   props.put("bootstrap.servers", "localhost:9092")
   props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
   props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-  props.put("group.id", "something")
+  props.put("group.id", "please_do_work")
 
   val consumer = new KafkaConsumer[String, String](props)
   val TOPIC = "filter-result"
