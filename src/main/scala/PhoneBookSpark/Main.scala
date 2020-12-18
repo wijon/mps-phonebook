@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.stream.alpakka.csv.scaladsl.{CsvParsing, CsvToMap}
 import akka.stream.scaladsl.{FileIO, Sink}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.spark.sql.SparkSession
 
 import java.io.File
 import java.util.Properties
@@ -24,6 +25,12 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
+    val spark = SparkSession.builder.appName("Simple Application").config("spark.master", "local").getOrCreate()
+
+    // This is to provide SPARK from printing so much garbage
+    // Still not recommended... Without the garbage printing, the shell locks for multiple seconds without any indicator, why :P
+    //spark.sparkContext.setLogLevel("ERROR")
+
     implicit val system: ActorSystem = ActorSystem()
     val files = getFiles("src\\main\\scala\\PhoneBookKafka\\data")
     val sources = files.map(f => FileIO.fromPath(f.toPath))
@@ -34,7 +41,8 @@ object Main {
       System.out.println("(2) nach einem Nachname suchen")
       System.out.println("(3) nach einer Strasse suchen")
       System.out.println("(4) nach einem Ortsnamen suchen")
-      System.out.println("(5) alle Daten durchsuchen")
+      System.out.println("(5) SPARK ✨✨✨✨ Zeilen zählen")
+      System.out.println("(6) SPARK ✨✨✨✨ Zeilen anhand eines Wortes zählen")
 
       breakable {
         val input = StdIn.readLine()
@@ -44,19 +52,41 @@ object Main {
           case "2" => println("Geben Sie einen Nachnamen ein:")
           case "3" => println("Geben Sie eine Strasse ein:")
           case "4" => println("Geben Sie einen Ortsnamen ein:")
+          case "5" => println("Geben Sie einen Stadtnamen ein:")
+          case "6" => println("Geben Sie einen Stadtnamen ein:")
           case _ =>
             println("Falsche Eingabe!")
-            break // Continue
+            break
         }
 
         val pattern = StdIn.readLine()
         var column: String = null
+
+        // SPARK only ✨✨✨✨
+        if(input.toInt > 4) {
+          val filename = pattern + ".csv"
+          val textFile = spark.read.textFile("src\\main\\scala\\PhoneBookSpark\\data\\" + filename)
+
+          input match {
+            case "5" => System.out.println("Anzahl Zeilen in " + filename + ": " + textFile.count())
+            case "6" =>
+              println("Geben Sie ein Wort ein:")
+              val wordToCount = StdIn.readLine()
+              System.out.println("Anzahl Zeilen in " + filename + ", die " + wordToCount + " beinhalten: " + textFile.filter(line => line.contains(wordToCount)).count())
+          }
+
+          println()
+          println()
+          break
+        }
 
         input match {
           case "1" => column = "Name"
           case "2" => column = "Surname"
           case "3" => column = "Street"
           case "4" => column = "City"
+          case _ =>
+            break
         }
 
         val props = new Properties()
@@ -87,5 +117,10 @@ object Main {
         println()
       }
     }
+
+    // Steht hier nur der Vollständigkeit halber... wird sowieso nie erreicht 🤷‍
+    // Lustig, dass man im Quellcode Emojis verwenden kann 😅
+    // Auch wenn man sie nicht richtig erkennen kann... 🤦‍
+    spark.stop()
   }
 }

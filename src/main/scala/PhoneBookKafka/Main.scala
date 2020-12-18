@@ -37,7 +37,6 @@ object Main {
       System.out.println("(2) nach einem Nachname suchen")
       System.out.println("(3) nach einer Strasse suchen")
       System.out.println("(4) nach einem Ortsnamen suchen")
-      System.out.println("(5) alle Daten durchsuchen")
 
       breakable {
         val input = StdIn.readLine()
