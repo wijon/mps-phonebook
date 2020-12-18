@@ -2,10 +2,9 @@ package TestKafka
 
 import java.util
 import java.util.Properties
-
 import org.apache.kafka.clients.consumer.KafkaConsumer
 
-import scala.jdk.CollectionConverters.IterableHasAsScala
+import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
 object Consumer extends App {
 

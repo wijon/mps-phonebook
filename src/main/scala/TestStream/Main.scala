@@ -1,5 +1,6 @@
 package TestStream
 
+import scala.collection.compat.immutable.LazyList
 import scala.language.postfixOps
 
 object Main {

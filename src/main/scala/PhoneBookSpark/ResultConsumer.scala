@@ -4,7 +4,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 
 import java.util
 import java.util.Properties
-import scala.jdk.CollectionConverters.IterableHasAsScala
+import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
 object ResultConsumer extends App {
   val props = new Properties()
