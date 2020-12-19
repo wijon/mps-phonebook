@@ -1,33 +1,44 @@
 package PhoneBookSpark
 
-import org.apache.htrace.fasterxml.jackson.databind.deser.std.StringDeserializer
-import org.apache.kafka.clients.consumer.KafkaConsumer
-
-import java.util
-import java.util.Properties
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.streaming.kafka010.KafkaUtils
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
 object ResultConsumer extends App {
-  val props = new Properties()
-  props.put("bootstrap.servers", "localhost:9092")
-  props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-  props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-  props.put("group.id", "please_do_work")
-
-  val consumer = new KafkaConsumer[String, String](props)
   val TOPIC = "filter-result"
 
-  consumer.subscribe(util.Collections.singletonList(TOPIC))
+  val spark = SparkSession.builder.appName("Spark with Kafka").config("spark.master", "local").getOrCreate()
+  spark.sparkContext.setLogLevel("ERROR")
+  val sc = new StreamingContext(spark.sparkContext, Seconds(1))
+
+  val kafkaParams = Map[String, Object](
+    "bootstrap.servers" -> "localhost:9092",
+    "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+    "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+    "group.id" -> "something"
+  )
+
+  val topics = Array(TOPIC)
+  val stream = KafkaUtils.createDirectStream[String, String](
+    sc,
+    PreferConsistent,
+    Subscribe[String, String](topics, kafkaParams)
+  )
 
   println(s"Subscribed to topic: '$TOPIC'")
   println("Start polling")
   println()
   println()
 
-  while (true) {
-    val records = consumer.poll(100)
-    for (record <- records.asScala) {
-      println(record.value())
-    }
-  }
+//  stream.foreachRDD(rdd => rdd.foreach(cr => println(cr.value)))  // Prints results
+  stream.foreachRDD(rdd => {
+    val count = rdd.count()
+    if(count > 0)
+      println(count)
+  })  // Prints result count
+
+  sc.start
+  sc.awaitTermination
 }
