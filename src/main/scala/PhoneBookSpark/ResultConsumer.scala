@@ -32,12 +32,15 @@ object ResultConsumer extends App {
   println()
   println()
 
-//  stream.foreachRDD(rdd => rdd.foreach(cr => println(cr.value)))  // Prints results
+  //  stream.foreachRDD(rdd => rdd.foreach(cr => println(cr.value)))  // Prints results
   stream.foreachRDD(rdd => {
-    val count = rdd.count()
-    if(count > 0)
-      println(count)
-  })  // Prints result count
+    if (!rdd.isEmpty) {
+      println(s"Total: ${rdd.count()}")
+      rdd.map(cr => cr.value)
+        .groupBy(value => value.split("\\|").last)
+        .foreach(x => println(s"City: ${x._1} => ${x._2.count(_ => true)}"))
+    }
+  }) // Prints result count
 
   sc.start
   sc.awaitTermination
